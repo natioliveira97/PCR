@@ -27,25 +27,24 @@ inv_knmtc = np.array([[math.cos(b1-y1)/math.sin(y1), math.sin(b1-y1)/math.sin(y1
                       [math.cos(b3-y3)/math.sin(y3), math.sin(b3-y3)/math.sin(y3), -l*math.sin(b3-y3-a3)/math.sin(y3)],
                       [math.cos(b4-y4)/math.sin(y4), math.sin(b4-y4)/math.sin(y4), -l*math.sin(b4-y4-a4)/math.sin(y4)]])
 
-# Desidere pose
+# Desired pose
 qsi_desired = np.array([[0], [0], [0]])
 qsi_desired_d = np.array([[0],[0],[0]])
 
 # Control matrix
-A = np.array([[-1, 0, 0],
-              [0, -1, 0],
-              [0, 0, -1]])
+A = np.array([[-3, 0, 0],
+              [0, -3, 0],
+              [0, 0, -3]])
 qsi_time = 0
 
-print(inv_knmtc)
 
-def angle(v, w): return arccos(v.dot(w)/(norm(v)*norm(w)))
-
+# Callback function of desired path parameters
 def callback_path(msg):
     global qsi_desired
     global qsi_desired_d
     global qsi_time
 
+    # Callback measures
     x = msg.pose.position.x
     y = msg.pose.position.y
 
@@ -53,26 +52,23 @@ def callback_path(msg):
     b = msg.pose.orientation.y
     c = msg.pose.orientation.z
 
+    # Find desired angle 
     R = np.array([[cos(b)*cos(c), -cos(b)*sin(c) , sin(b) ],
                   [cos(a)*sin(c)+cos(c)*sin(a)*sin(b), cos(a)*cos(c)-sin(a)*sin(b)*sin(c), -cos(b)*sin(a)],
                   [sin(a)*sin(c)-cos(a)*cos(c)*sin(b), cos(c)*sin(a)+cos(a)*sin(b)*sin(c), cos(a)*cos(b)]])
-       
-
     z = R.dot(np.array([0,0,1]))
-
     t = math.atan2(z[1],z[0])
 
-
+    # Calculate time
     old_qsi_time = qsi_time
     qsi_time = float((msg.header.stamp.secs)+float(msg.header.stamp.nsecs)*10**(-9))
 
 
     old_qsi_desired = qsi_desired
-
     qsi_desired = np.array([[x], [y], [t]])
     qsi_desired_d = (qsi_desired-old_qsi_desired)/(qsi_time-old_qsi_time)
-    qsi_desired_d[2][0] = math.atan2(math.sin(qsi_desired_d[2][0]),math.cos(qsi_desired_d[2][0]))
-    # print(qsi_desired_d)
+    qsi_desired_d[2][0] = math.atan2(math.sin(qsi_desired_d[2][0]),math.cos(qsi_desired_d[2][0])) # Fix angle between pi and -pi
+
 
     
 
@@ -80,25 +76,18 @@ def callback(msg):
     # Callback measures
     x = msg.pose.position.x
     y = msg.pose.position.y
-    theta = math.atan2(math.sin(msg.pose.orientation.x-math.pi/2),math.cos(msg.pose.orientation.x-math.pi/2))
-    # theta = msg.pose.orientation.x-math.pi/2
+    theta = math.atan2(math.sin(msg.pose.orientation.z-math.pi/2),math.cos(msg.pose.orientation.z-math.pi/2))
+    qsi_measured = np.array([[x], [y], [theta]])
 
+    # Rotation fixed frame to robot frame
     R = np.array([[math.cos(theta), math.sin(theta), 0],
                   [-math.sin(theta), math.cos(theta), 0],
                   [0,0,1]])
 
-    time = float((msg.header.stamp.secs)+float(msg.header.stamp.nsecs)*10**(-9))
-    qsi_measured = np.array([[x], [y], [theta]])
-
-
     # Control action
     error = qsi_desired-qsi_measured
-    error[2][0] = math.atan2(math.sin(error[2][0]),math.cos(error[2][0]))
-    print(qsi_desired_d)
+    error[2][0] = math.atan2(math.sin(error[2][0]),math.cos(error[2][0])) # Fix angle between pi and -pi
     q = inv_knmtc.dot(R.dot(qsi_desired_d-A.dot(error)))
-    # print(error)
-
-    # q = inv_knmtc.dot(np.array([[0],[0.0],[0]]))
 
     # Command action
     vel = Float32MultiArray()
@@ -116,10 +105,9 @@ if __name__ == '__main__':
 
     # Create publisher to send wheels velocity
     pub = rospy.Publisher('/sim_ros_interface/YouBot_wheels', Float32MultiArray, queue_size=10)
-    #Create subscriber to listen to robot location
+    # Create subscriber to listen to robot location
     sub = rospy.Subscriber("/sim_ros_interface/YouBot_position", PoseStamped, callback)
+    # Create subscriber to listen to path location
     sub_path = rospy.Subscriber("/sim_ros_interface/Path_position", PoseStamped, callback_path)
 
     rospy.spin()
-
-
