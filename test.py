@@ -7,7 +7,6 @@ from math import sin, cos
 import numpy as np
 from numpy import arccos
 from numpy.linalg import norm
-import vg
 
 # Robot parameters
 b1 = b3 = math.pi/2
