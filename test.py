@@ -7,6 +7,11 @@ from math import sin, cos
 import numpy as np
 from numpy import arccos
 from numpy.linalg import norm
+import time
+
+robot_callback_init = False
+path_callback_init = False
+
 
 # Robot parameters
 b1 = b3 = math.pi/2
@@ -31,14 +36,22 @@ qsi_desired = np.array([[0], [0], [0]])
 qsi_desired_d = np.array([[0],[0],[0]])
 
 # Control matrix
-A = np.array([[-3, 0, 0],
-              [0, -3, 0],
-              [0, 0, -3]])
+A = np.array([[-5, 0, 0],
+              [0, -10, 0],
+              [0, 0, -15]])
 qsi_time = 0
 
 
 # Callback function of desired path parameters
 def callback_path(msg):
+    global path_callback_init
+    global robot_callback_init
+
+    path_callback_init = True
+
+    while (robot_callback_init and path_callback_init) is not True:
+        time.sleep(0.01)
+
     global qsi_desired
     global qsi_desired_d
     global qsi_time
@@ -55,7 +68,7 @@ def callback_path(msg):
     R = np.array([[cos(b)*cos(c), -cos(b)*sin(c) , sin(b) ],
                   [cos(a)*sin(c)+cos(c)*sin(a)*sin(b), cos(a)*cos(c)-sin(a)*sin(b)*sin(c), -cos(b)*sin(a)],
                   [sin(a)*sin(c)-cos(a)*cos(c)*sin(b), cos(c)*sin(a)+cos(a)*sin(b)*sin(c), cos(a)*cos(b)]])
-    z = R.dot(np.array([0,0,1]))
+    z = R.dot(np.array([0,1,0]))
     t = math.atan2(z[1],z[0])
 
     # Calculate time
@@ -72,6 +85,14 @@ def callback_path(msg):
     
 
 def callback(msg):
+    global path_callback_init
+    global robot_callback_init
+
+    robot_callback_init = True
+
+    while (robot_callback_init and path_callback_init) is not True:
+        time.sleep(0.01)
+
     # Callback measures
     x = msg.pose.position.x
     y = msg.pose.position.y
